@@ -74,6 +74,7 @@ class TwitterClient(object):
                 parsed_tweet['text'] = tweet.text
                 parsed_tweet['user'] = tweet.user.screen_name
                 parsed_tweet['location'] = tweet.user.location
+                parsed_tweet['friends'] = tweet.user.friends_count
                 #Saving sentiment of tweet
                 parsed_tweet['polarity'] = self.get_tweet_polarity(tweet.text)
                 parsed_tweet['sentiment'] = self.get_tweet_sentiment(tweet.text)
@@ -90,11 +91,11 @@ class TwitterClient(object):
             #Print error (if any)
             print("Error: " + str(e))
 
-    def get_trends(self):
+    def get_trends(self, woeid):
         """Return most popular and recent trends"""
         trends = []
         try:
-            fetched_trends = self.api.trends_place(23424803) #Canada
+            fetched_trends = self.api.trends_place(woeid) #Canada 23424803
             for trend in fetched_trends[0]["trends"]:
                 parsed_trend = {}
                 parsed_trend["name"] = trend["name"]
@@ -136,7 +137,13 @@ def main():
     geo = str(location.latitude) + "," + str(location.longitude) + "," + radius +"km"
     tweets = api.get_tweets(query=keyword, geo=geo, count=count, result_type=result_type)
     users = api.get_users(query=keyword, count=count)
-    trends = api.get_trends()
+    if place == "Toronto, Ontario, Canada":
+        woeid = 4118
+    elif place == "Vancouver, British Columbia, Canada":
+        woeid = 9807
+    elif place == "Montreal, Quebec, Canada":
+        woeid == 3534
+    trends = api.get_trends(woeid)
 
     print(location.latitude)
     print(location.longitude)
@@ -159,6 +166,7 @@ def main():
     ptweets = [tweet for tweet in tweets if tweet['sentiment'] == 'positive']
     #Percentage of positive tweets
     if len(tweets) > 0:
+        positive = 100 * len(ptweets) / len(tweets)
         print("Positive tweets percentage: {}%".format(100 * len(ptweets) / len(tweets)))
     else:
         print("No positive tweets available")
@@ -166,14 +174,22 @@ def main():
     ntweets = [tweet for tweet in tweets if tweet['sentiment'] == 'negative']
     #Percentage of negative tweets
     if len(tweets) > 0:
+        negative = 100 * len(ntweets) / len(tweets)
         print("Negative tweets percentage: {}%".format(100 * len(ntweets) / len(tweets)))
     else:
         print("No negative tweets available")
     #Percentage of neutral tweets
     if len(tweets) > 0:
+        neutral = 100 * (len(tweets) - (len(ntweets) + len(ptweets))) / len(tweets)
         print("Neutral tweets percentage: {}%".format(100 * (len(tweets) - (len(ntweets) + len(ptweets))) / len(tweets)))
     else:
         print("No neutral tweets available")
+
+    sentiment_list = ["Positive", "Negative", "Neutral"]
+    sentiment_pct = [positive, negative, neutral]
+    sentiment_dt = {'sentiment': sentiment_list, 'percent': sentiment_pct}
+    sentiment_df = pd.DataFrame(sentiment_dt)
+    st.dataframe(sentiment_df)
 
     #Printing first 10 positive tweets
     print("\n\nPositive tweets:")
@@ -195,6 +211,9 @@ def main():
     print("\n\nTop Twitter Trends")
     for trend in trends:
         print(trend["name"] + ": " + str(trend["tweet_volume"]))
+
+    trends_df = pd.DataFrame(trends)
+    st.dataframe(trends_df)
 
 if __name__ == "__main__":
     #Calling main function
