@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import altair as alt
 import geopy as gp
+import base64
 
 #Run App
 #streamlit run twitter-api.py
@@ -125,15 +126,15 @@ def main():
     print("This program fetches a number of tweets based on an entered query, analyzes the sentiment of those tweets using the TextBlob training dataset and pulls the top trends based on geography\n\n")
     st.subheader("This program fetches a number of tweets based on an entered query, analyzes the sentiment of those tweets using the TextBlob training dataset and pulls the top trends based on geography")
     #count = int(input("Enter the number of search results to fetch: "))
-    count = int(st.slider('Select a number of tweets to parse', 1, 500, 100))
+    count = int(st.sidebar.slider('Select a number of tweets to parse', 1, 500, 100))
     #keyword = input("Enter a keyword: ")
-    keyword = st.text_input("Enter a keyword to search in Twitter")
+    keyword = st.sidebar.text_input("Enter a keyword to search in Twitter", "trump")
     #result_type = input("Enter a result type (mixed, recent, popular): ")
-    result_type = st.selectbox('Choose the result type to receive', ('mixed', 'recent', 'popular'))
+    result_type = st.sidebar.selectbox('Choose the result type to receive', ('mixed', 'recent', 'popular'))
     locator = gp.Nominatim(user_agent="myGeocoder")
-    place = st.selectbox('Choose a location to filter the results by', ('Toronto, Ontario, Canada', 'Vancouver, British Columbia, Canada', 'Montreal, Quebec, Canada'))
+    place = st.sidebar.selectbox('Choose a location to filter the results by', ('Toronto, Ontario, Canada', 'Vancouver, British Columbia, Canada', 'Montreal, Quebec, Canada'))
     location = locator.geocode(place)
-    radius = str(st.slider('Select a radius span (in km) for the search', 1, 10000, 1000))
+    radius = str(st.sidebar.slider('Select a radius span (in km) for the search', 1, 10000, 1000))
     geo = str(location.latitude) + "," + str(location.longitude) + "," + radius +"km"
     tweets = api.get_tweets(query=keyword, geo=geo, count=count, result_type=result_type)
     users = api.get_users(query=keyword, count=count)
@@ -144,16 +145,6 @@ def main():
     elif place == "Montreal, Quebec, Canada":
         woeid == 3534
     trends = api.get_trends(woeid)
-
-    print(location.latitude)
-    print(location.longitude)
-    print(geo)
-
-    tweet_df = pd.DataFrame(tweets)
-    st.dataframe(tweet_df)
-    polarity_df = tweet_df[["location","polarity"]]
-    polarity_chart = alt.Chart(polarity_df).mark_bar().encode(x="polarity", y=alt.Y("location", sort="x"), color=alt.Color("location", legend=None)).interactive()
-    st.altair_chart(polarity_chart)
 
     #Printing user details of fetched tweets
     print("\n\nList of Users")
@@ -185,12 +176,6 @@ def main():
     else:
         print("No neutral tweets available")
 
-    sentiment_list = ["Positive", "Negative", "Neutral"]
-    sentiment_pct = [positive, negative, neutral]
-    sentiment_dt = {'sentiment': sentiment_list, 'percent': sentiment_pct}
-    sentiment_df = pd.DataFrame(sentiment_dt)
-    st.dataframe(sentiment_df)
-
     #Printing first 10 positive tweets
     print("\n\nPositive tweets:")
     counter = 1
@@ -211,6 +196,23 @@ def main():
     print("\n\nTop Twitter Trends")
     for trend in trends:
         print(trend["name"] + ": " + str(trend["tweet_volume"]))
+
+    tweet_df = pd.DataFrame(tweets)
+    st.dataframe(tweet_df)
+    csv = tweet_df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()
+    href = f'<a href="data:file/csv;base64,{b64}" download = tweet_data.csv>Download CSV File</a> (click and save as &lt;filename&gt;.csv)'
+    st.markdown(href, unsafe_allow_html=True)
+    polarity_df = tweet_df[["location", "polarity"]]
+    polarity_chart = alt.Chart(polarity_df).mark_bar().encode(x="polarity", y=alt.Y("location", sort="x"),
+                                                              color=alt.Color("location", legend=None)).interactive()
+    st.altair_chart(polarity_chart)
+
+    sentiment_list = ["Positive", "Negative", "Neutral"]
+    sentiment_pct = [positive, negative, neutral]
+    sentiment_dt = {'sentiment': sentiment_list, 'percent': sentiment_pct}
+    sentiment_df = pd.DataFrame(sentiment_dt)
+    st.dataframe(sentiment_df)
 
     st.text("Top Twitter Trends for Specified Location")
     trends_df = pd.DataFrame(trends)
