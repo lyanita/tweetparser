@@ -212,6 +212,7 @@ def main():
     for trend in trends:
         print(trend["name"] + ": " + str(trend["tweet_volume"]))
 
+    st.text("Top Twitter Trends for Specified Location")
     trends_df = pd.DataFrame(trends)
     st.dataframe(trends_df)
 
