@@ -222,7 +222,7 @@ def main():
         cleanse.append(place)
     tweet_df["city"] = cleanse
     geolocator = gp.Nominatim(user_agent="myGeocoder",timeout=2)
-    tweet_df["gcode"] = tweet_df.location.apply(geolocator.geocode)
+    tweet_df["gcode"] = tweet_df.location.apply(geolocator.geocode, language="en")
     tweet_df["latitude"] = [0 if g is None else g.latitude for g in tweet_df.gcode]
     tweet_df["longitude"] = [0 if g is None else g.longitude for g in tweet_df.gcode]
     tweet_df = tweet_df[tweet_df.gcode.notnull()]
