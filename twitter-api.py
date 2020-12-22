@@ -12,6 +12,11 @@ import pandas as pd
 import altair as alt
 import geopy as gp
 import base64
+import matplotlib.pyplot as plt
+from geotext import GeoText
+from shapely.geometry import Point, Polygon
+import descartes
+import folium
 
 #Run App
 #streamlit run twitter-api.py
@@ -60,7 +65,7 @@ class TwitterClient(object):
         else:
             return 'negative'
 
-    def get_tweets(self, query, geo, count=10, result_type="mixed"):
+    def get_tweets(self, query, geo, count=10, result_type="recent"):
         """Fetch and parse tweets using keyword and count parameters"""
         #Empty list to store parsed tweets
         tweets = []
@@ -73,6 +78,7 @@ class TwitterClient(object):
                 parsed_tweet = {}
                 #Saving text description of tweet
                 parsed_tweet['text'] = tweet.text
+                parsed_tweet['date'] = tweet.created_at
                 parsed_tweet['user'] = tweet.user.screen_name
                 parsed_tweet['location'] = tweet.user.location
                 parsed_tweet['friends'] = tweet.user.friends_count
@@ -118,6 +124,12 @@ class TwitterClient(object):
             tweets.append(parsed_tweet)
         return tweets
 
+    def get_json(self, query, geo, count=10, result_type="mixed"):
+        """Fetch and parse tweets using keyword and count parameters"""
+        #Call twitter api to fetch tweets
+        fetched_tweets = self.api.search(q=query, geocode=geo, count=count, result_type=result_type, lang="en")
+        return fetched_tweets
+
 def main():
     st.title('Tweet Parser App')
     #Creating object of TwitterClient Class
@@ -143,8 +155,10 @@ def main():
     elif place == "Vancouver, British Columbia, Canada":
         woeid = 9807
     elif place == "Montreal, Quebec, Canada":
-        woeid == 3534
+        woeid = 3534
     trends = api.get_trends(woeid)
+    json = api.get_json(query=keyword, geo=geo, count=count, result_type=result_type)
+    #print(json)
 
     #Printing user details of fetched tweets
     print("\n\nList of Users")
@@ -198,6 +212,28 @@ def main():
         print(trend["name"] + ": " + str(trend["tweet_volume"]))
 
     tweet_df = pd.DataFrame(tweets)
+
+    places = tweet_df["location"].apply(lambda x: GeoText(x).cities)
+    cities = list(places)
+    cleanse = []
+    clean = ["0" if x == [] else x for x in cities]
+    for city in clean:
+        place = city[0]
+        cleanse.append(place)
+    tweet_df["city"] = cleanse
+    geolocator = gp.Nominatim(user_agent="myGeocoder",timeout=2)
+    tweet_df["gcode"] = tweet_df.location.apply(geolocator.geocode)
+    tweet_df["latitude"] = [0 if g is None else g.latitude for g in tweet_df.gcode]
+    tweet_df["longitude"] = [0 if g is None else g.longitude for g in tweet_df.gcode]
+    tweet_df = tweet_df[tweet_df.gcode.notnull()]
+    tweet_df["gcode"] = tweet_df.gcode.astype(str)
+    tweet_df = tweet_df[tweet_df['gcode'].str.endswith("Canada")]
+    midpoint = (np.average(tweet_df['latitude']), np.average(tweet_df['longitude']))
+    #st.deck_gl_chart(viewport={'latitude': midpoint[0], 'longitude': midpoint[1], 'zoom': 4}, layers=[{'type': 'ScatterplotLayer', 'data': tweet_df["city", "latitude", "longitude"], 'radiusScale': 250, 'radiusMinPixels': 5, 'getFillColor': [248, 24, 148],}])
+
+    token = "sk.eyJ1IjoibHlhbml0YSIsImEiOiJja2l6aGI1aHUwZWVoMzB0ZDF6d2c3enllIn0.jdVPFoJVzrm92PUY405RxA"
+    st.map(tweet_df[["latitude", "longitude"]])
+
     st.dataframe(tweet_df)
     csv = tweet_df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
@@ -206,7 +242,7 @@ def main():
     polarity_df = tweet_df[["location", "polarity"]]
     polarity_chart = alt.Chart(polarity_df).mark_bar().encode(x="polarity", y=alt.Y("location", sort="x"),
                                                               color=alt.Color("location", legend=None)).interactive()
-    st.altair_chart(polarity_chart)
+    #st.altair_chart(polarity_chart)
 
     sentiment_list = ["Positive", "Negative", "Neutral"]
     sentiment_pct = [positive, negative, neutral]
