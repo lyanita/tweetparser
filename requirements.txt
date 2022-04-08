@@ -10,3 +10,4 @@ geopy==2.0.0
 descartes==1.1.0
 folium==0.11.0
 numpy==1.18.1
+click==8.0.4
